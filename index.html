@@ -651,8 +651,11 @@ disclosureIds.forEach((id,index)=>{
  const record={details,content,button,id,index};disclosureRecords.push(record);
  button.addEventListener('click',()=>{
   const wasActive=button.getAttribute('aria-selected')==='true';
-  disclosureRecords.forEach(item=>{item.button.setAttribute('aria-selected','false');item.details.open=false;});
-  if(wasActive){disclosureContent.hidden=true;disclosureContent.replaceChildren();return;}
+  disclosureRecords.forEach(item=>{
+   item.button.setAttribute('aria-selected','false');item.details.open=false;
+   if(item.content.parentNode===disclosureContent)item.details.appendChild(item.content);
+  });
+  if(wasActive){disclosureContent.hidden=true;return;}
   button.setAttribute('aria-selected','true');details.open=true;disclosureContent.replaceChildren(content);disclosureContent.hidden=false;
  });
 });
