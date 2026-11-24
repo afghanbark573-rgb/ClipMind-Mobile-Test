@@ -1305,7 +1305,7 @@ async function loadFastExtractor(){
     ffmpegReady=false;
     ffmpeg.on('log',({message})=>{
      if(message){
-      ffmpegLogText=(ffmpegLogText+'\\n'+message).slice(-200000);
+      ffmpegLogText=(ffmpegLogText+'\n'+message).slice(-200000);
       if(/time=/.test(message))aiStatus('Extracting audio directly… '+message.match(/time=\\S+/)?.[0]);
      }
     });
@@ -2709,7 +2709,7 @@ function formatHighlightReport(g,index,passage){
   '',
   'FULL PASSAGE',
   (passage||g.text||'').trim()
- ].join('\\n');
+ ].join('\n');
 }
 
 function showSuggestions(items){
@@ -2787,7 +2787,7 @@ function showSuggestions(items){
    reports.push(formatHighlightReport(g,index,passage));
   }
   copyAll.disabled=true;copyAllStatus.textContent='Preparing all '+reports.length+' highlights…';
-  try{await copyDiagnosticText(reports.join('\\n\\n'+'='.repeat(48)+'\\n\\n'));copyAllStatus.textContent='Copied all '+reports.length+' highlights with metadata and full passages.';}
+  try{await copyDiagnosticText(reports.join('\n\n'+'='.repeat(48)+'\n\n'));copyAllStatus.textContent='Copied all '+reports.length+' highlights with metadata and full passages.';}
   catch(error){copyAllStatus.textContent='Copy failed. Check clipboard permission and try again.';}
   finally{copyAll.disabled=false;}
  });
