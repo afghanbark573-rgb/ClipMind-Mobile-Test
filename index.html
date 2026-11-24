@@ -17,9 +17,7 @@ h1{font-size:29px;line-height:1.12;margin:8px 0}.sub{color:var(--muted);line-hei
 .card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:15px;margin:13px 0}
 h2{font-size:16px;margin:0 0 5px}.help{font-size:12px;color:var(--muted);line-height:1.5;margin:0 0 13px}
 .pick{width:100%;border:1px dashed #667799;background:#1b2940;color:white;border-radius:13px;padding:18px 12px;font-size:15px;font-weight:700;min-height:68px}
-.pick-file-control{position:relative;display:block;width:100%;cursor:pointer;touch-action:manipulation}
-.pick-file-control .pick{display:flex;align-items:center;justify-content:center;box-sizing:border-box}
-.pick-file-control #file{position:absolute!important;inset:0!important;display:block!important;width:100%!important;height:100%!important;min-height:68px!important;margin:0!important;padding:0!important;opacity:0!important;cursor:pointer!important;z-index:2!important}
+#file{position:absolute;left:-9999px;width:1px;height:1px}
 #preview{width:100%;max-height:340px;background:#05070c;border-radius:12px;margin-top:13px}
 .hidden{display:none!important}.meta,.status{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 2px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -461,7 +459,8 @@ body.analysis-busy #analysisDisclosures>details>summary{pointer-events:auto!impo
 
 <section class="card">
 <h2>1. Choose your video</h2><p class="help">Works with English, Hindi, Dari/Persian, Arabic, and many other spoken languages. Clear audio gives the best results.</p>
-<label class="pick-file-control" aria-label="Choose a video file"><span class="pick">＋ &nbsp; Select video</span><input id="file" type="file" accept="video/*" aria-label="Choose a video file"></label>
+<input id="file" type="file" accept="video/*">
+<button class="pick" id="choose">＋ &nbsp; Select video</button>
 <div id="meta" class="meta hidden"></div>
 <video id="preview" class="hidden" controls playsinline preload="metadata"></video>
 <div id="previewTools" class="preview-tools hidden"><div class="inspection-range-controls" aria-label="AI inspection range"><div class="row">
@@ -658,9 +657,13 @@ disclosureIds.forEach((id,index)=>{
  });
 });
 disclosureContent.id='analysisDisclosureContent';disclosureContent.setAttribute('role','tabpanel');
-disclosureRoot.replaceChildren(disclosureTabs,disclosureContent);
+const disclosureSourcePanels=document.createElement('div');
+disclosureSourcePanels.hidden=true;
+disclosureSourcePanels.setAttribute('aria-hidden','true');
+disclosureRecords.forEach(item=>disclosureSourcePanels.appendChild(item.details));
+disclosureRoot.replaceChildren(disclosureTabs,disclosureContent,disclosureSourcePanels);
 // Keep transcript reading as two swipeable, independently scrollable pages.
-const transcriptContent=$('transcriptBox').querySelector('.disclosure-content');
+const transcriptContent=disclosureRecords.find(item=>item.id==='transcriptBox')?.content||null;
 if(transcriptContent){
  const nodes=[...transcriptContent.children];
  const fullCard=document.createElement('section');fullCard.className='transcript-page transcript-full-page';
@@ -692,7 +695,6 @@ function enhanceSelect(select){
  if(parent&&parent.tagName==='LABEL'){parent.insertAdjacentElement('afterend',wrap);}else{select.parentNode.insertBefore(wrap,select);}
  wrap.append(trigger,menu,select);
  select.classList.add('custom-select-native');
- select.tabIndex=-1;
  render();select.addEventListener('change',render);
 }
 ['language','englishModel','previewSpeed'].forEach(id=>enhanceSelect($(id)));
@@ -1132,39 +1134,16 @@ function initClockEditors(root=document){
    if(type==='insertText'&&event.data&&/^\d$/.test(event.data)){
     event.preventDefault();insertDigit(event.data);return;
    }
-   if(type==='deleteContentBackward'||type==='deleteContentForward'){
-    event.preventDefault();
-    let pos=field.selectionStart??0;
-    if(type==='deleteContentBackward'){pos=Math.max(0,pos-1);if(pos===2)pos=1;}
-    if(pos===2)pos=3;
-    const idx=digitAt(pos),digits=getDigits();
-    if(idx>=0&&idx<4)digits[idx]='0';
-    render(digits,pos);return;
-   }
   });
   field.addEventListener('input',()=>{
-   // Fallback for Android keyboards that bypass beforeinput: preserve the
-   // existing digit positions instead of shifting the whole MMSS string.
-   const raw=field.value,previous=field.dataset.lastValue||'00:00';
-   if(raw.length===5&&raw[2]===':'){
-    if(canonical){canonical.value=field.value;canonical.dispatchEvent(new Event('change',{bubbles:true}));}
-    field.dataset.lastValue=field.value;return;
+   const raw=field.value,old=field.dataset.lastValue||'00:00';
+   const digits=raw.replace(/\D/g,'').slice(-4).padStart(4,'0').split('');
+   if(raw.length!==5||raw[2]!==':'){
+    const caret=field.selectionStart??raw.length;
+    render(digits,Math.min(5,caret));return;
    }
-   const oldDigits=previous.replace(/\D/g,'').slice(-4).padStart(4,'0').split('');
-   const newDigits=raw.replace(/\D/g,'').slice(-4);
-   const caret=field.selectionStart??raw.length;
-   let index=caret<=1?caret:caret<=2?1:caret<=4?caret-1:3;
-   index=Math.max(0,Math.min(3,index));
-   if(newDigits.length>4){
-    render(newDigits.slice(-4).split(''),Math.min(5,caret));return;
-   }
-   const candidate=newDigits.padStart(4,'0').split('');
-   let changed=-1;
-   for(let i=0;i<4;i++){if(candidate[i]!==oldDigits[i]){changed=i;break;}}
-   if(changed<0)changed=index;
-   if(newDigits.length<4)oldDigits[changed]='0';
-   else oldDigits[changed]=candidate[changed];
-   render(oldDigits,Math.min(5,caret));
+   if(canonical){canonical.value=field.value;canonical.dispatchEvent(new Event('change',{bubbles:true}));}
+   field.dataset.lastValue=field.value;
   });
   field.addEventListener('paste',event=>{
    const text=(event.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'');
@@ -1177,7 +1156,8 @@ function initClockEditors(root=document){
 }
 initClockEditors();
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-file.addEventListener('change',()=>{
+$('choose').onclick=()=>file.click();
+file.onchange=()=>{
  const f=file.files?.[0];if(!f)return;selectedFile=f;
  if(typeof outputUrls!=='undefined'){outputUrls.forEach(url=>URL.revokeObjectURL(url));outputUrls.clear();}
  $('clipOutputs').innerHTML='';window.clipMindSuggestions=[];$('batchControls').style.display='none';
@@ -1196,7 +1176,7 @@ file.addEventListener('change',()=>{
   exportStatus('Video ready. You can create a manual clip or run AI first.');
  };
  video.onerror=()=>{$('duration').textContent='Could not read this video. Try an MP4 in the latest Chrome.'};
-});
+};
 
 function createWhisperWorker(){
  if(whisperWorker)return whisperWorker;
